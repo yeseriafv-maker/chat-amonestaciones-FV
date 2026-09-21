@@ -1,43 +1,46 @@
-import os
 import streamlit as st
 import google.generativeai as genai
+from pypdf import PdfReader
 
-# Configuración de la página
+# Configuración de la página web
 st.set_page_config(page_title="Asistente de Amonestaciones FV", page_icon="📋")
 st.title("📋 Asistente de Amonestaciones FV")
 st.write("Ingresa el párrafo del caso del operario para generar la amonestación basada EXCLUSIVAMENTE en los reglamentos de la empresa.")
 
-# Configurar API Key
+# Lectura de la clave API
 api_key = st.secrets.get("GEMINI_API_KEY")
 if not api_key:
-    st.error("Falta configurar la API Key de Google en los Secrets.")
+    st.error("Falta configurar la API Key de Google en los Secrets de Streamlit.")
     st.stop()
 
 genai.configure(api_key=api_key)
 
-# Nombres exactos de los archivos PDF subidos a GitHub
+# Nombres de los archivos PDF
 PDF_1_PATH = "Reglamento_Interno.pdf"
 PDF_2_PATH = "RIHSI_2026.pdf"
 
 @st.cache_resource
-def cargar_documentos():
-    """Carga los reglamentos a la API de Gemini en segundo plano."""
-    files_uploaded = []
-    for pdf_path in [PDF_1_PATH, PDF_2_PATH]:
-        if os.path.exists(pdf_path):
-            uploaded_file = genai.upload_file(pdf_path)
-            files_uploaded.append(uploaded_file)
-        else:
-            st.error(f"No se encontró el archivo: {pdf_path}. Asegúrate de haberlo subido a GitHub con ese nombre exacto.")
+def leer_pdf_archivos():
+    texto_completo = ""
+    for path in [PDF_1_PATH, PDF_2_PATH]:
+        try:
+            reader = PdfReader(path)
+            for page in reader.pages:
+                texto_completo += page.extract_text() + "\n"
+        except Exception as e:
+            st.error(f"Error al leer el archivo {path}: {e}")
             st.stop()
-    return files_uploaded
+    return texto_completo
 
-# Cargar los PDF
-documentos_fv = cargar_documentos()
+# Carga de reglamentos en memoria
+contexto_reglamentos = leer_pdf_archivos()
 
-# Instrucciones estrictas del sistema
-SYSTEM_INSTRUCTION = """
-Eres un asesor legal y auditor interno de la empresa FV. Tu única función es analizar el párrafo del caso presentado por el usuario y redactar los campos para el Formulario de Amonestación basándote EXCLUSIVAMENTE en los reglamentos cargados en este chat.
+SYSTEM_INSTRUCTION = f"""
+Eres un asesor legal y auditor interno de la empresa FV. Tu única función es analizar el párrafo del caso presentado por el usuario y redactar los campos para el Formulario de Amonestación basándote EXCLUSIVAMENTE en los siguientes reglamentos cargados:
+
+--- REGLAMENTOS DE LA EMPRESA FV ---
+{contexto_reglamentos}
+------------------------------------
 
 REGLAS OBLIGATORIAS:
 1. Extrae de forma autónoma los nombres, cargos, fechas, evidencias y hechos descritos dentro del párrafo que ingrese el usuario.
@@ -60,14 +63,12 @@ Acción disciplinaria sugerida: [Paso o medida según la escala del reglamento, 
 Acción correctiva del operario: [Compromiso de conducta puntual e inmediato que debe cumplir el trabajador para evitar reincidencias]
 """
 
-# Configuración del modelo Gemini
 model = genai.GenerativeModel(
     model_name="gemini-1.5-pro",
     system_instruction=SYSTEM_INSTRUCTION,
     generation_config={"temperature": 0}
 )
 
-# Entrada del caso por el usuario
 caso_input = st.text_area("Escribe o pega el caso del operario en un párrafo aquí:", height=150)
 
 if st.button("Generar Amonestación"):
@@ -75,9 +76,10 @@ if st.button("Generar Amonestación"):
         st.warning("Por favor ingresa los datos del caso.")
     else:
         with st.spinner("Analizando reglamentos de FV..."):
-            prompt_content = [*documentos_fv, caso_input]
-            response = model.generate_content(prompt_content)
-            
-            st.markdown("---")
-            st.markdown("### Formulario de Amonestación Generado:")
-            st.write(response.text)
+            try:
+                response = model.generate_content(caso_input)
+                st.markdown("---")
+                st.markdown("### Formulario de Amonestación Generado:")
+                st.write(response.text)
+            except Exception as e:
+                st.error(f"Error al procesar: {e}")
