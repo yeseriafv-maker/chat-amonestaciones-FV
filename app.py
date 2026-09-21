@@ -65,9 +65,9 @@ Acción disciplinaria sugerida: [Paso o medida según la escala del reglamento, 
 Acción correctiva del operario: [Compromiso de conducta puntual e inmediato que debe cumplir el trabajador para evitar reincidencias]
 """
 
-# Configuración del modelo estándar
+# Configuración del modelo exacto visto en AI Studio: Gemini 3.1 Pro
 model = genai.GenerativeModel(
-    model_name="gemini-1.5-flash",
+    model_name="gemini-3.1-pro",
     system_instruction=SYSTEM_INSTRUCTION,
     generation_config={"temperature": 0}
 )
@@ -87,16 +87,6 @@ if st.button("Generar Amonestación"):
             except Exception as e:
                 error_msg = str(e)
                 if "429" in error_msg or "quota" in error_msg.lower():
-                    st.error("⚠️ Se alcanzó el límite de cuota gratuita de peticiones por minuto. Espera 30 segundos e inténtalo de nuevo.")
-                elif "404" in error_msg:
-                    # Intento alternativo con gemini-1.5-pro si flash no responde en esa zona
-                    try:
-                        alt_model = genai.GenerativeModel("gemini-1.5-pro", system_instruction=SYSTEM_INSTRUCTION, generation_config={"temperature": 0})
-                        response = alt_model.generate_content(caso_input)
-                        st.markdown("---")
-                        st.markdown("### Formulario de Amonestación Generado:")
-                        st.write(response.text)
-                    except Exception as alt_e:
-                        st.error(f"Error al conectar con la API de Gemini: {alt_e}")
+                    st.error("⚠️ Se alcanzó el límite de solicitudes por minuto. Por favor espera 30 segundos antes de intentar de nuevo.")
                 else:
                     st.error(f"Error al procesar: {e}")
