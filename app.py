@@ -63,11 +63,19 @@ Acción disciplinaria sugerida: [Paso o medida según la escala del reglamento, 
 Acción correctiva del operario: [Compromiso de conducta puntual e inmediato que debe cumplir el trabajador para evitar reincidencias]
 """
 
-model = genai.GenerativeModel(
-    model_name="models/gemini-1.5-pro",
-    system_instruction=SYSTEM_INSTRUCTION,
-    generation_config={"temperature": 0}
-)
+# Configuración con el nombre exacto compatible con la API
+try:
+    model = genai.GenerativeModel(
+        model_name="gemini-1.5-flash",
+        system_instruction=SYSTEM_INSTRUCTION,
+        generation_config={"temperature": 0}
+    )
+except Exception:
+    model = genai.GenerativeModel(
+        model_name="gemini-1.5-pro",
+        system_instruction=SYSTEM_INSTRUCTION,
+        generation_config={"temperature": 0}
+    )
 
 caso_input = st.text_area("Escribe o pega el caso del operario en un párrafo aquí:", height=150)
 
