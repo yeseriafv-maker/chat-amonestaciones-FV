@@ -64,7 +64,7 @@ Acción correctiva del operario: [Compromiso de conducta puntual e inmediato que
 """
 
 model = genai.GenerativeModel(
-    model_name="gemini-1.5-pro",
+    model_name="models/gemini-1.5-pro",
     system_instruction=SYSTEM_INSTRUCTION,
     generation_config={"temperature": 0}
 )
