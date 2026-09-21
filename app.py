@@ -3,7 +3,7 @@ import google.generativeai as genai
 from pypdf import PdfReader
 import time
 
-# Configuración de la página web (Título corregido sin íconos incompatibles)
+# Configuración de la página web
 st.set_page_config(page_title="Asistente de Amonestaciones FV", page_icon="📄")
 st.title("Asistente de Amonestaciones FV")
 st.write("Ingresa el párrafo del caso del operario para generar la amonestación basada EXCLUSIVAMENTE en los reglamentos de la empresa.")
@@ -66,37 +66,28 @@ Acción disciplinaria sugerida: [Paso o medida según la escala del reglamento, 
 Acción correctiva del operario: [Compromiso de conducta puntual e inmediato que debe cumplir el trabajador para evitar reincidencias]
 """
 
-# Selección dinámica del modelo disponible
+# Asignación directa del modelo solicitado por la API de Google
 @st.cache_resource
-def obtener_modelo():
-    try:
-        modelos_disponibles = [
-            m.name for m in genai.list_models()
-            if 'generateContent' in m.supported_generation_methods
-        ]
-        
-        # Buscar en orden de preferencia de modelos de texto rápidos
-        for preferido in ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-2.5-flash", "gemini-3.6-flash", "gemini-pro"]:
-            for m in modelos_disponibles:
-                if preferido in m:
-                    return genai.GenerativeModel(
-                        model_name=m,
-                        system_instruction=SYSTEM_INSTRUCTION,
-                        generation_config={"temperature": 0}
-                    )
-        
-        # Si ninguno coincide, seleccionar el primero que soporte generación de contenido
-        if modelos_disponibles:
-            return genai.GenerativeModel(
-                model_name=modelos_disponibles[0],
+def cargar_modelo():
+    modelos_a_probar = ["gemini-3.6-flash", "gemini-3.8-flash", "gemini-3.5-flash"]
+    for m_name in modelos_a_probar:
+        try:
+            m = genai.GenerativeModel(
+                model_name=m_name,
                 system_instruction=SYSTEM_INSTRUCTION,
                 generation_config={"temperature": 0}
             )
-    except Exception as e:
-        st.error(f"Error al obtener lista de modelos de Gemini: {e}")
-        st.stop()
+            return m
+        except Exception:
+            continue
+    # Si ninguno funciona de la lista, intentar el estándar
+    return genai.GenerativeModel(
+        model_name="gemini-3.6-flash",
+        system_instruction=SYSTEM_INSTRUCTION,
+        generation_config={"temperature": 0}
+    )
 
-model = obtener_modelo()
+model = cargar_modelo()
 
 caso_input = st.text_area("Escribe o pega el caso del operario en un párrafo aquí:", height=150)
 
@@ -124,7 +115,8 @@ if st.button("Generar Amonestación"):
                             st.info(f"Límite de frecuencia alcanzado. Esperando 10 segundos para reintentar ({intentos}/{max_intentos})...")
                             time.sleep(10)
                         else:
-                            st.error("Se ha alcanzado el límite de solicitudes. Por favor espera unos momentos antes de presionar el botón de nuevo.")
+                            st.error("Se ha alcanzado el límite de solicitudes por minuto. Espera un momento antes de volver a presionar el botón.")
+                            break
                     else:
                         st.error(f"Error al procesar: {e}")
                         break
