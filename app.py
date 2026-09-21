@@ -2,9 +2,9 @@ import streamlit as st
 import google.generativeai as genai
 from pypdf import PdfReader
 
-# Configuración de la página web
-st.set_page_config(page_title="Asistente de Amonestaciones FV", page_icon="📋")
-st.title("📋 Asistente de Amonestaciones FV")
+# Configuración de la página web (usando icono simple o texto)
+st.set_page_config(page_title="Asistente de Amonestaciones FV", page_icon="📑")
+st.title("📄 Asistente de Amonestaciones FV")
 st.write("Ingresa el párrafo del caso del operario para generar la amonestación basada EXCLUSIVAMENTE en los reglamentos de la empresa.")
 
 # Lectura de la clave API
