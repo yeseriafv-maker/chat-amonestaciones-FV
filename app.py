@@ -1,7 +1,6 @@
 import streamlit as st
 import google.generativeai as genai
 from pypdf import PdfReader
-import time
 
 # Configuración de la página web
 st.set_page_config(page_title="Asistente de Amonestaciones FV", page_icon="📄")
@@ -66,28 +65,12 @@ Acción disciplinaria sugerida: [Paso o medida según la escala del reglamento, 
 Acción correctiva del operario: [Compromiso de conducta puntual e inmediato que debe cumplir el trabajador para evitar reincidencias]
 """
 
-# Asignación directa del modelo solicitado por la API de Google
-@st.cache_resource
-def cargar_modelo():
-    modelos_a_probar = ["gemini-3.6-flash", "gemini-3.8-flash", "gemini-3.5-flash"]
-    for m_name in modelos_a_probar:
-        try:
-            m = genai.GenerativeModel(
-                model_name=m_name,
-                system_instruction=SYSTEM_INSTRUCTION,
-                generation_config={"temperature": 0}
-            )
-            return m
-        except Exception:
-            continue
-    # Si ninguno funciona de la lista, intentar el estándar
-    return genai.GenerativeModel(
-        model_name="gemini-3.6-flash",
-        system_instruction=SYSTEM_INSTRUCTION,
-        generation_config={"temperature": 0}
-    )
-
-model = cargar_modelo()
+# Configuración del modelo estándar
+model = genai.GenerativeModel(
+    model_name="gemini-1.5-flash",
+    system_instruction=SYSTEM_INSTRUCTION,
+    generation_config={"temperature": 0}
+)
 
 caso_input = st.text_area("Escribe o pega el caso del operario en un párrafo aquí:", height=150)
 
@@ -96,27 +79,24 @@ if st.button("Generar Amonestación"):
         st.warning("Por favor ingresa los datos del caso.")
     else:
         with st.spinner("Analizando reglamentos de FV..."):
-            exito = False
-            intentos = 0
-            max_intentos = 3
-            
-            while not exito and intentos < max_intentos:
-                try:
-                    response = model.generate_content(caso_input)
-                    st.markdown("---")
-                    st.markdown("### Formulario de Amonestación Generado:")
-                    st.write(response.text)
-                    exito = True
-                except Exception as e:
-                    error_str = str(e)
-                    if "429" in error_str or "quota" in error_str.lower():
-                        intentos += 1
-                        if intentos < max_intentos:
-                            st.info(f"Límite de frecuencia alcanzado. Esperando 10 segundos para reintentar ({intentos}/{max_intentos})...")
-                            time.sleep(10)
-                        else:
-                            st.error("Se ha alcanzado el límite de solicitudes por minuto. Espera un momento antes de volver a presionar el botón.")
-                            break
-                    else:
-                        st.error(f"Error al procesar: {e}")
-                        break
+            try:
+                response = model.generate_content(caso_input)
+                st.markdown("---")
+                st.markdown("### Formulario de Amonestación Generado:")
+                st.write(response.text)
+            except Exception as e:
+                error_msg = str(e)
+                if "429" in error_msg or "quota" in error_msg.lower():
+                    st.error("⚠️ Se alcanzó el límite de cuota gratuita de peticiones por minuto. Espera 30 segundos e inténtalo de nuevo.")
+                elif "404" in error_msg:
+                    # Intento alternativo con gemini-1.5-pro si flash no responde en esa zona
+                    try:
+                        alt_model = genai.GenerativeModel("gemini-1.5-pro", system_instruction=SYSTEM_INSTRUCTION, generation_config={"temperature": 0})
+                        response = alt_model.generate_content(caso_input)
+                        st.markdown("---")
+                        st.markdown("### Formulario de Amonestación Generado:")
+                        st.write(response.text)
+                    except Exception as alt_e:
+                        st.error(f"Error al conectar con la API de Gemini: {alt_e}")
+                else:
+                    st.error(f"Error al procesar: {e}")
