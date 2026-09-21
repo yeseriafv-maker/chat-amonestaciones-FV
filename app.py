@@ -63,37 +63,12 @@ Acción disciplinaria sugerida: [Paso o medida según la escala del reglamento, 
 Acción correctiva del operario: [Compromiso de conducta puntual e inmediato que debe cumplir el trabajador para evitar reincidencias]
 """
 
-# Función para seleccionar un modelo válido automáticamente
-@st.cache_resource
-def obtener_modelo_valido():
-    try:
-        modelos_disponibles = [
-            m.name for m in genai.list_models() 
-            if 'generateContent' in m.supported_generation_methods
-        ]
-        
-        # Buscar modelos disponibles en orden de preferencia
-        for preferido in ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash-latest", "gemini-pro"]:
-            for m in modelos_disponibles:
-                if preferido in m:
-                    return genai.GenerativeModel(
-                        model_name=m,
-                        system_instruction=SYSTEM_INSTRUCTION,
-                        generation_config={"temperature": 0}
-                    )
-        
-        # Si no coincide ninguno preferido, tomar el primero disponible
-        if modelos_disponibles:
-            return genai.GenerativeModel(
-                model_name=modelos_disponibles[0],
-                system_instruction=SYSTEM_INSTRUCTION,
-                generation_config={"temperature": 0}
-            )
-    except Exception as e:
-        st.error(f"Error al listar modelos de Gemini: {e}")
-        st.stop()
-
-model = obtener_modelo_valido()
+# Inicialización del modelo actualizado
+model = genai.GenerativeModel(
+    model_name="gemini-3.6-flash",
+    system_instruction=SYSTEM_INSTRUCTION,
+    generation_config={"temperature": 0}
+)
 
 caso_input = st.text_area("Escribe o pega el caso del operario en un párrafo aquí:", height=150)
 
