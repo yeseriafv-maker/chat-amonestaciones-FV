@@ -1,9 +1,10 @@
 import streamlit as st
 import google.generativeai as genai
 from pypdf import PdfReader
+import time
 
-# Configuración de la página web (usando icono simple o texto)
-st.set_page_config(page_title="Asistente de Amonestaciones FV", page_icon="📑")
+# Configuración de la página web
+st.set_page_config(page_title="Asistente de Amonestaciones FV", page_icon="📄")
 st.title("📄 Asistente de Amonestaciones FV")
 st.write("Ingresa el párrafo del caso del operario para generar la amonestación basada EXCLUSIVAMENTE en los reglamentos de la empresa.")
 
@@ -26,7 +27,9 @@ def leer_pdf_archivos():
         try:
             reader = PdfReader(path)
             for page in reader.pages:
-                texto_completo += page.extract_text() + "\n"
+                texto = page.extract_text()
+                if texto:
+                    texto_completo += texto + "\n"
         except Exception as e:
             st.error(f"Error al leer el archivo {path}: {e}")
             st.stop()
@@ -63,9 +66,9 @@ Acción disciplinaria sugerida: [Paso o medida según la escala del reglamento, 
 Acción correctiva del operario: [Compromiso de conducta puntual e inmediato que debe cumplir el trabajador para evitar reincidencias]
 """
 
-# Inicialización del modelo actualizado
+# Configuración del modelo
 model = genai.GenerativeModel(
-    model_name="gemini-3.6-flash",
+    model_name="gemini-1.5-flash",
     system_instruction=SYSTEM_INSTRUCTION,
     generation_config={"temperature": 0}
 )
@@ -77,10 +80,26 @@ if st.button("Generar Amonestación"):
         st.warning("Por favor ingresa los datos del caso.")
     else:
         with st.spinner("Analizando reglamentos de FV..."):
-            try:
-                response = model.generate_content(caso_input)
-                st.markdown("---")
-                st.markdown("### Formulario de Amonestación Generado:")
-                st.write(response.text)
-            except Exception as e:
-                st.error(f"Error al procesar: {e}")
+            exito = False
+            intentos = 0
+            max_intentos = 3
+            
+            while not exito and intentos < max_intentos:
+                try:
+                    response = model.generate_content(caso_input)
+                    st.markdown("---")
+                    st.markdown("### Formulario de Amonestación Generado:")
+                    st.write(response.text)
+                    exito = True
+                except Exception as e:
+                    error_str = str(e)
+                    if "429" in error_str or "quota" in error_str.lower():
+                        intentos += 1
+                        if intentos < max_intentos:
+                            st.info(f"Límite de frecuencia alcanzado. Esperando 15 segundos para reintentar (Intento {intentos}/{max_intentos})...")
+                            time.sleep(15)
+                        else:
+                            st.error("Se ha alcanzado el límite de peticiones gratuitas por minuto de la API de Gemini. Por favor espera 1 minuto antes de volver a presionar el botón.")
+                    else:
+                        st.error(f"Error al procesar: {e}")
+                        break
